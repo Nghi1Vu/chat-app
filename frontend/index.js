@@ -11,5 +11,11 @@ $(function(){
       });
     });
 
-    fetch("/getMessages").then(x=>alert(x))
+    fetch("/getMessages").then(data=>{
+      data.json().then((x)=>{
+        debugger
+      let container=$('#conversation')
+      container.append(x)
+      })
+    })
 })

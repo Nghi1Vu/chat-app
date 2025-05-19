@@ -13,38 +13,53 @@ const client = createClient({
         port: ((process.env.REDIS_PORT as unknown) as number)
     }
 });
-
-// client.on('error', err => console.log('Redis Client Error', err));
-// const val= {
-// 				message : "xin chào",
-// 				date : "",
-// 				from : "nodejs"
-// }
-// client.connect().then(()=>{
-// client.publish('chatroom_123',JSON.stringify(val));
-// });
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 //get ds tin nhắn
-app.get("/getMessages",(req, res) =>{
+app.get("/getMessages",async (req, res) =>{
 debugger
+if(client.isOpen){
+  res.json(await getMessages());
+}else{
 client.connect().then(async()=>{
-let findPaulResult = await client.ft.search("idx:messages", '*') as any
-if(findPaulResult&&findPaulResult.total){
-// (findPaulResult.documents as Array<any>).forEach(doc => {
-//     console.log(`ID: ${doc.id}, name: ${doc.value.from}, message: ${doc.value.message}, date: ${doc.value.date}`);
-// });
-      res.json(findPaulResult.documents);
 
-}});
+      res.json(await getMessages());
+});
+}
 
-
-//client.keys
 })
-
+async function getMessages(){
+    let result=''
+  let findPaulResult = await client.ft.search("idx:messages", '*') as  {
+  total: number;
+  documents: {
+    id: string;
+    value: {
+      from:string,
+      message:string,
+      date:string
+    };
+  }[];
+};
+if(findPaulResult&&findPaulResult.total){
+  (findPaulResult.documents).forEach(doc => {
+    result+=` <div class="row message-body">
+          <div class="col-sm-12 message-main-receiver">
+            <div class="receiver">
+              <div class="message-text">
+               ${doc.value.message}
+              </div>
+              <span class="message-time pull-right">
+                 ${doc.value.date}
+              </span>
+            </div>
+          </div>
+        </div>`
+});
+return result
+}}
 app.use(express.static(path.join(__dirname, '../../frontend')));
 
 io.on('connection', (socket) => {
