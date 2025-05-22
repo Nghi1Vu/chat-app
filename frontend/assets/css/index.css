@@ -1,4 +1,10 @@
-
+.avatar{
+  vertical-align: baseline;
+ 
+}
+ .avatarR{
+    float: right;
+  }
 html,
 body,
 div,

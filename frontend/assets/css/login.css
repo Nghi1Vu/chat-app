@@ -28,7 +28,15 @@ body{
     }
   }
 }
-
+.container {
+        max-width: 100%;
+    }
+/* @media (min-width: 992px) {
+    .container {
+        max-width: 100% !important;
+    }
+}  */
+<!--important-container-media-width-->
 .top, .bottom{
   &:before, &:after{
     content:'';

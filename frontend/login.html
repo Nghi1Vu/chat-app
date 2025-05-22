@@ -13,10 +13,14 @@
   <div class="top"></div>
   <div class="bottom"></div>
   <div class="center">
-    <h2>Please Sign In</h2>
-    <input type="email" placeholder="email"/>
-    <input type="password" placeholder="password"/>
+    <h2>Đăng nhập</h2>
+    <form action="/login" method="get" enctype="application/x-www-form-urlencoded">
+ <input name="account" placeholder="Tài khoản"/>
+    <input name="password" type="password" placeholder="Mật khẩu"/>
     <h2>&nbsp;</h2>
+    <button hidden></button>
+    </form>
+   
   </div>
 </div>
 </body>

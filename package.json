@@ -4,21 +4,29 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "nodemon --watch backend --watch frontend --ext ts,html,css,js --exec ts-node backend/src/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@types/express-session": "^1.18.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "nodemon": "^3.1.10",
     "redis": "^5.0.1",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@types/connect-livereload": "^0.6.3",
     "@types/express": "^5.0.1",
+    "@types/livereload": "^0.9.5",
     "@types/node": "^22.15.17",
+    "connect-livereload": "^0.6.1",
+    "livereload": "^0.9.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
