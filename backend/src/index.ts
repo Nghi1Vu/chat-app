@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import livereload from 'livereload';
 import connectLiveReload from 'connect-livereload';
 import session from 'express-session';
+import { env } from "process";
+
 // Middleware để TypeScript nhận diện session
 declare module 'express-session' {
   interface Session {
@@ -36,13 +38,20 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 app.use(connectLiveReload()); // Middleware để inject LiveReload script
-// Cấu hình session
-app.use(session({
+let ses=session({
   secret: 'your-secret-key', // Chuỗi bí mật để mã hóa session
   resave: false, // Không lưu lại session nếu không thay đổi
   saveUninitialized: false, // Không tạo session cho đến khi có dữ liệu
   cookie: { secure: false } // Đặt true nếu dùng HTTPS
-}));
+})
+// Cấu hình session
+app.use(ses);
+// Middleware chia sẻ session
+io.use((socket, next) => {
+  const req = socket.request as express.Request;
+  const res = wrapRes();
+  ses(req, res as any, next as any);
+});
 
 //get ds tin nhắn
 app.get("/getMessages", async (req, res) => {
@@ -143,19 +152,50 @@ async function getMessages(currentuser:string|undefined) {
     return result;
   }
 }
+async function saveMessage(from: string, message: string) {
+  let obj={
+    from: from,
+    message: message,
+    date: new Date(Date.now()).toISOString(),
+  } as any;
+  (await client.publish(process.env.REDIS_ROOM as string,JSON.stringify(obj))) 
+}
 app.use(express.static(path.join(__dirname, "../../frontend")));
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
   socket.on("chat message", (msg) => {
-    io.emit("chat message", msg); // gửi cho tất cả
+      const req = socket.request as express.Request;
+debugger
+    io.emit("chat message", `
+          <div class="col-sm-12 message-main-sender">
+                              <img class="avatar avatarR" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
+            <div class="sender">
+              <div class="message-text">
+                              ${msg}
+
+              </div>
+              <span class="message-time pull-right">
+                                 ${(new Date(Date.now())).toLocaleString()}
+
+              </span>
+            </div>
+          </div>
+       `); // gửi cho tất cả
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
   });
 });
+
+function wrapRes() {
+  // Only the end() method is required for express-session
+  return {
+    getHeader: () => {},
+    setHeader: () => {},
+    end: () => {},
+    writeHead: () => {},
+  };
+}
 
 const PORT = 3000;
 server.listen(PORT, () => {

@@ -153,7 +153,7 @@
 
       <div class="row reply">
         <div class="col-sm-1 col-xs-1 reply-emojis">
-          <i class="fa fa-smile-o fa-2x"></i>
+          <i id="emoji-btn" class="fa fa-smile-o fa-2x"></i>
         </div>
         <div class="col-sm-9 col-xs-9 reply-main">
           <textarea class="form-control" rows="1" id="comment"></textarea>
@@ -162,35 +162,52 @@
           <i class="fa fa-microphone fa-2x" aria-hidden="true"></i>
         </div>
         <div class="col-sm-1 col-xs-1 reply-send">
-          <i class="fa fa-send fa-2x" aria-hidden="true"></i>
+          <i class="fa fa-send fa-2x" aria-hidden="true" onclick="SendMessage()"></i>
         </div>
       </div>
     </div>
   </div>
 </div>
+  <script src="/socket.io/socket.io.js"></script>
+<script type="module">
+import * as joeattardiemojiButton from 'https://esm.run/@joeattardi/emoji-button';
 
+ const picker = new joeattardiemojiButton.EmojiButton({
+  position: 'bottom-start'
+});
+const emojiBtn = document.querySelector('.reply-emojis');
+const commentInput = document.querySelector('#comment');
 
-  <!-- <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const form = document.getElementById('form');
-    const input = document.getElementById('input');
-    const messages = document.getElementById('messages');
+emojiBtn.addEventListener('click', () => {
+  picker.togglePicker(emojiBtn);
+});
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (input.value) {
-        socket.emit('chat message', input.value);
-        input.value = '';
-      }
-    });
+picker.on('emoji', emoji => {
+  debugger
+  commentInput.value += emoji.emoji;
+});
+</script>
+<script>
+      const socket = io();
+  function SendMessage() {
+    var message = document.getElementById("comment").value;
+    if (message) {
+      // Emit the message to the server
+      socket.emit('chat message', message);
+      document.getElementById("comment").value = '';
+    }
+  }
+ socket.on('chat message', (msg) => {
+    const conversation = document.getElementById('conversation');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'row message-body'; // Optional: add a class for styling
+    messageDiv.innerHTML = msg; // <-- This will render HTML inside msg
+    conversation.appendChild(messageDiv);
+    window.scrollTo(0, document.body.scrollHeight);
+ });
+ 
+  
+</script>
 
-    socket.on('chat message', (msg) => {
-      const li = document.createElement('li');
-      li.textContent = msg;
-      messages.appendChild(li);
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-  </script> -->
 </body>
 </html>

@@ -472,7 +472,9 @@ body {
   text-indent: 5px;
   box-shadow: none;
 }
-
+.emoji-picker__wrapper{
+    transform: translate3d(700px, -10px, 0px)!important;
+}
 @media screen and (max-width: 700px) {
   .app {
     top: 0;
