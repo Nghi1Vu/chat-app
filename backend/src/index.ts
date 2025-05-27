@@ -4,19 +4,20 @@ import { Server } from "socket.io";
 import path from "path";
 import { createClient } from "redis";
 import dotenv from "dotenv";
-import livereload from 'livereload';
-import connectLiveReload from 'connect-livereload';
-import session from 'express-session';
-import { env } from "process";
+import livereload from "livereload";
+import connectLiveReload from "connect-livereload";
+import session from "express-session";
+import { env, getuid } from "process";
+import { v4 as uuidv4 } from "uuid";
 
 // Middleware để TypeScript nhận diện session
-declare module 'express-session' {
+declare module "express-session" {
   interface Session {
-    currentuser: string|undefined; // Khai báo kiểu dữ liệu cho giá trị lưu trong session
+    currentuser: string | undefined; // Khai báo kiểu dữ liệu cho giá trị lưu trong session
   }
 }
 
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 const client = createClient({
   username: "default",
   password: process.env.REDIS_PASSWORD,
@@ -38,12 +39,12 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 app.use(connectLiveReload()); // Middleware để inject LiveReload script
-let ses=session({
-  secret: 'your-secret-key', // Chuỗi bí mật để mã hóa session
+let ses = session({
+  secret: "your-secret-key", // Chuỗi bí mật để mã hóa session
   resave: false, // Không lưu lại session nếu không thay đổi
   saveUninitialized: false, // Không tạo session cho đến khi có dữ liệu
-  cookie: { secure: false } // Đặt true nếu dùng HTTPS
-})
+  cookie: { secure: false }, // Đặt true nếu dùng HTTPS
+});
 // Cấu hình session
 app.use(ses);
 // Middleware chia sẻ session
@@ -55,7 +56,7 @@ io.use((socket, next) => {
 
 //get ds tin nhắn
 app.get("/getMessages", async (req, res) => {
-    const savedValue = req.session.currentuser;
+  const savedValue = req.session.currentuser;
 
   if (client.isOpen) {
     res.json(await getMessages(savedValue));
@@ -69,22 +70,22 @@ app.get("/getMessages", async (req, res) => {
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "../../frontend/login.html"));
 });
-//login 
+//login
 app.get("/login", async (req, res) => {
   const account = req.query.account as string;
   const password = req.query.password as string;
-  let username
+  let username;
   if (!client.isOpen) {
     await client.connect().then(async () => {
-      username=await Login(res,account,password);
+      username = await Login(res, account, password);
     });
-  }else{
-username=await Login(res,account,password);
+  } else {
+    username = await Login(res, account, password);
   }
- req.session.currentuser =username
+  req.session.currentuser = username;
 });
-async function Login(res:any,account:string, password:string){
- let findPaulResult = (await client.ft.search(
+async function Login(res: any, account: string, password: string) {
+  let findPaulResult = (await client.ft.search(
     "idx:users",
     `@username:${account} @password:${password}`
   )) as {
@@ -98,7 +99,7 @@ async function Login(res:any,account:string, password:string){
     return account;
   }
 }
-async function getMessages(currentuser:string|undefined) {
+async function getMessages(currentuser: string | undefined) {
   let result = "";
   let findPaulResult = (await client.ft.search("idx:messages", "*")) as {
     total: number;
@@ -113,8 +114,8 @@ async function getMessages(currentuser:string|undefined) {
   };
   if (findPaulResult && findPaulResult.total) {
     findPaulResult.documents.forEach((doc) => {
-      if(currentuser===doc.value.from){
-       result +=  `<div class="row message-body">
+      if (currentuser === doc.value.from) {
+        result += `<div class="row message-body">
           <div class="col-sm-12 message-main-sender">
                               <img class="avatar avatarR" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
             <div class="sender">
@@ -128,10 +129,9 @@ async function getMessages(currentuser:string|undefined) {
               </span>
             </div>
           </div>
-        </div>`
-      }
-     else{
-       result += `
+        </div>`;
+      } else {
+        result += `
          
          
         <div class="row message-body">
@@ -147,26 +147,59 @@ async function getMessages(currentuser:string|undefined) {
             </div>
           </div>
         </div>`;
-     }
+      }
     });
     return result;
   }
 }
+async function getKey(type: string) {
+  let valkey='';
+  await clientOpen(async () => {
+    if (type === "message:") {
+      valkey = uuidv4();
+
+      while ((await client.exists(type + valkey)) > 0) {
+        valkey = uuidv4();
+      }
+    }
+  });
+        return valkey;
+}
+async function clientOpen(func: Function) {
+  if (!client.isOpen) {
+    await client.connect().then(async () => {
+      return func();
+    });
+  } else {
+    return func();
+  }
+}
 async function saveMessage(from: string, message: string) {
-  let obj={
+  let obj = {
     from: from,
     message: message,
     date: new Date(Date.now()).toISOString(),
   } as any;
-  (await client.publish(process.env.REDIS_ROOM as string,JSON.stringify(obj))) 
+  await client.publish(process.env.REDIS_ROOM as string, JSON.stringify(obj));
+  let key=await getKey("message:");
+  await client.json.set(`message:${(key)}`,'$', obj);
 }
 app.use(express.static(path.join(__dirname, "../../frontend")));
 
 io.on("connection", (socket) => {
-  socket.on("chat message", (msg) => {
-      const req = socket.request as express.Request;
-debugger
-    io.emit("chat message", `
+  socket.on("chat message", async (msg) => {
+    const req = socket.request as express.Request;
+    if (!client.isOpen) {
+      await client.connect().then(async () => {
+        await saveMessage(req.session.currentuser as string, msg);
+      });
+    } else {
+      await saveMessage(req.session.currentuser as string, msg);
+    }
+
+    io.emit(
+      "chat message",
+      `
           <div class="col-sm-12 message-main-sender">
                               <img class="avatar avatarR" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
             <div class="sender">
@@ -175,16 +208,16 @@ debugger
 
               </div>
               <span class="message-time pull-right">
-                                 ${(new Date(Date.now())).toLocaleString()}
+                                 ${new Date(Date.now()).toLocaleString()}
 
               </span>
             </div>
           </div>
-       `); // gửi cho tất cả
+       `
+    ); // gửi cho tất cả
   });
 
-  socket.on("disconnect", () => {
-  });
+  socket.on("disconnect", () => {});
 });
 
 function wrapRes() {

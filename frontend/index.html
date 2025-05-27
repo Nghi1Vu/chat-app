@@ -198,6 +198,7 @@ picker.on('emoji', emoji => {
     }
   }
  socket.on('chat message', (msg) => {
+  debugger
     const conversation = document.getElementById('conversation');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'row message-body'; // Optional: add a class for styling
