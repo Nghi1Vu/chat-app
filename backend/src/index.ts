@@ -1,5 +1,5 @@
-import express, { json, response } from "express";
-import http from "http";
+import express, { json, response, Response } from "express";
+import http, { request } from "http";
 import { Server } from "socket.io";
 import path from "path";
 import { createClient } from "redis";
@@ -38,6 +38,11 @@ liveReloadServer.server.once("connection", () => {
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// Add body parser middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.use(connectLiveReload()); // Middleware để inject LiveReload script
 let ses = session({
   secret: "your-secret-key", // Chuỗi bí mật để mã hóa session
@@ -71,9 +76,10 @@ app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "../../frontend/login.html"));
 });
 //login
-app.get("/login", async (req, res) => {
-  const account = req.query.account as string;
-  const password = req.query.password as string;
+app.post("/login", async (req, res) => {
+  
+  const account = req.body.account as string;
+  const password = req.body.password as string;
   let username;
   if (!client.isOpen) {
     await client.connect().then(async () => {
@@ -84,7 +90,7 @@ app.get("/login", async (req, res) => {
   }
   req.session.currentuser = username;
 });
-async function Login(res: any, account: string, password: string) {
+async function Login(res: Response, account: string, password: string) {
   let findPaulResult = (await client.ft.search(
     "idx:users",
     `@username:${account} @password:${password}`
