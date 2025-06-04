@@ -26,6 +26,14 @@ const client = createClient({
     port: process.env.REDIS_PORT as unknown as number,
   },
 });
+const clientSub = createClient({
+  username: "default",
+  password: process.env.REDIS_PASSWORD,
+  socket: {
+    host: process.env.REDIS_HOST as string,
+    port: process.env.REDIS_PORT as unknown as number,
+  },
+});
 // Khởi tạo LiveReload server
 const liveReloadServer = livereload.createServer();
 
@@ -77,7 +85,6 @@ app.get("/", async (req, res) => {
 });
 //login
 app.post("/login", async (req, res) => {
-  
   const account = req.body.account as string;
   const password = req.body.password as string;
   let username;
@@ -107,7 +114,7 @@ async function Login(res: Response, account: string, password: string) {
 }
 async function getMessages(currentuser: string | undefined) {
   let result = "";
-  let findPaulResult = (await client.ft.search("idx:messages", "*")) as {
+  let findPaulResult = (await client.ft.search("idx:messages", "*",{ LIMIT: { from: 0, size: 10000 } })) as {
     total: number;
     documents: {
       id: string;
@@ -159,7 +166,7 @@ async function getMessages(currentuser: string | undefined) {
   }
 }
 async function getKey(type: string) {
-  let valkey='';
+  let valkey = "";
   await clientOpen(async () => {
     if (type === "message:") {
       valkey = uuidv4();
@@ -169,11 +176,20 @@ async function getKey(type: string) {
       }
     }
   });
-        return valkey;
+  return valkey;
 }
 async function clientOpen(func: Function) {
   if (!client.isOpen) {
     await client.connect().then(async () => {
+      return func();
+    });
+  } else {
+    return func();
+  }
+}
+async function clientSubOpen(func: Function) {
+  if (!clientSub.isOpen) {
+    await clientSub.connect().then(async () => {
       return func();
     });
   } else {
@@ -187,8 +203,8 @@ async function saveMessage(from: string, message: string) {
     date: new Date(Date.now()).toISOString(),
   } as any;
   await client.publish(process.env.REDIS_ROOM as string, JSON.stringify(obj));
-  let key=await getKey("message:");
-  await client.json.set(`message:${(key)}`,'$', obj);
+  let key = await getKey("message:");
+  await client.json.set(`message:${key}`, "$", obj);
 }
 app.use(express.static(path.join(__dirname, "../../frontend")));
 
@@ -221,6 +237,47 @@ io.on("connection", (socket) => {
           </div>
        `
     ); // gửi cho tất cả
+  });
+  clientSubOpen(async () => {
+   await clientSub.unsubscribe(process.env.REDIS_ROOM as string);
+   await clientSub.subscribe(process.env.REDIS_ROOM as string, (message) => {
+      const req = socket.request as express.Request;
+
+  const obj = JSON.parse(message);
+  io.emit(
+      "chat message",
+  (req.session.currentuser === obj.from?`
+          <div class="col-sm-12 message-main-sender">
+                              <img class="avatar avatarR" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
+            <div class="sender">
+              <div class="message-text">
+                              ${obj.message}
+
+              </div>
+              <span class="message-time pull-right">
+                                 ${new Date(obj.date).toLocaleString()}
+
+              </span>
+            </div>
+          </div>
+       `:`
+         
+         
+        <div class="row message-body">
+          <div class="col-sm-12 message-main-receiver">
+             <img class="avatar" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
+            <div class="receiver">
+              <div class="message-text">
+               ${obj.message}
+              </div>
+              <span class="message-time pull-right">
+                                 ${new Date(obj.date).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>`)
+    ); // gửi cho tất cả
+});
   });
 
   socket.on("disconnect", () => {});

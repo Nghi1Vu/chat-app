@@ -204,7 +204,7 @@ picker.on('emoji', emoji => {
     messageDiv.className = 'row message-body'; // Optional: add a class for styling
     messageDiv.innerHTML = msg; // <-- This will render HTML inside msg
     conversation.appendChild(messageDiv);
-    window.scrollTo(0, document.body.scrollHeight);
+    conversation.scrollTo(0, conversation.scrollHeight);
  });
  
   
