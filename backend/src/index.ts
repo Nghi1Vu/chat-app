@@ -36,6 +36,7 @@ const clientSub = createClient({
     port: process.env.REDIS_PORT as unknown as number,
   },
 });
+if (process.env.NODE_ENV !== "production") {
 // Khởi tạo LiveReload server
 const liveReloadServer = livereload.createServer();
 
@@ -44,7 +45,7 @@ liveReloadServer.server.once("connection", () => {
     liveReloadServer.refresh("/");
   }, 100);
 });
-
+}
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
