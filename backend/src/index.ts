@@ -6,14 +6,16 @@ import { createClient } from "redis";
 import dotenv from "dotenv";
 import livereload from "livereload";
 import connectLiveReload from "connect-livereload";
-import session from "express-session";
+import session, { Session, SessionData } from "express-session";
 import { env, getuid } from "process";
 import { v4 as uuidv4 } from "uuid";
+import RedisStore from "connect-redis";
 
 // Middleware để TypeScript nhận diện session
 declare module "express-session" {
-  interface Session {
+  interface SessionData {
     currentuser: string | undefined; // Khai báo kiểu dữ liệu cho giá trị lưu trong session
+  cookie: Cookie; // Thêm trường expires nếu cần
   }
 }
 
@@ -52,11 +54,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(connectLiveReload()); // Middleware để inject LiveReload script
-let ses = session({
-  secret: "your-secret-key", // Chuỗi bí mật để mã hóa session
-  resave: false, // Không lưu lại session nếu không thay đổi
-  saveUninitialized: false, // Không tạo session cho đến khi có dữ liệu
-  cookie: { secure: false }, // Đặt true nếu dùng HTTPS
+  (async () => {
+  if (!client.isOpen) {
+    await client.connect();
+  }
+  let ses = session({
+  store:new RedisStore.RedisStore({client:client}),
+  secret: 'secret',
+  saveUninitialized: true,
+  resave: false,
+  cookie: { secure: false, maxAge: 1 }
 });
 // Cấu hình session
 app.use(ses);
@@ -66,23 +73,30 @@ io.use((socket, next) => {
   const res = wrapRes();
   ses(req, res as any, next as any);
 });
-
-//get ds tin nhắn
-app.get("/getMessages", async (req, res) => {
-  const savedValue = req.session.currentuser;
-
-  if (client.isOpen) {
-    res.json(await getMessages(savedValue));
-  } else {
-    client.connect().then(async () => {
-      res.json(await getMessages(savedValue));
-    });
-  }
-});
 //login là trang mặc định
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "../../frontend/login.html"));
 });
+//get ds tin nhắn
+app.get("/getMessages", async (req, res) => {
+ 
+  await req.sessionStore.get(req.sessionID, async (err, savedValue) => {
+     if(!savedValue?.currentuser){
+    res.status(501).json("Hết phiên đăng nhập, vui lòng đăng nhập lại");
+    return;
+  }
+if (client.isOpen) {
+    res.json(await getMessages(savedValue?.currentuser));
+  } else {
+    client.connect().then(async () => {
+      res.json(await getMessages(savedValue?.currentuser));
+    });
+  }
+  });
+
+  
+});
+
 //login
 app.post("/login", async (req, res) => {
   const account = req.body.account as string;
@@ -95,8 +109,14 @@ app.post("/login", async (req, res) => {
   } else {
     username = await Login(res, account, password);
   }
-  req.session.currentuser = username;
+  req.sessionStore.set(req.sessionID,{currentuser: username,cookie:req.session.cookie} as SessionData);
 });
+app.use(express.static(path.join(__dirname, "../../frontend")));
+
+  })()
+
+
+
 async function Login(res: Response, account: string, password: string) {
   let findPaulResult = (await client.ft.search(
     "idx:users",
@@ -108,13 +128,13 @@ async function Login(res: Response, account: string, password: string) {
     }[];
   };
   if (findPaulResult && findPaulResult.total > 0) {
-    res.sendFile(path.join(__dirname, "../../frontend/index.html"));
+    res.redirect("/index.html");
     return account;
   }
 }
 async function getMessages(currentuser: string | undefined) {
   let result = "";
-  let findPaulResult = (await client.ft.search("idx:messages", "*",{ LIMIT: { from: 0, size: 10000 } })) as {
+  let findPaulResult = (await client.ft.search("idx:messages", "*",{ LIMIT: { from: 0, size: 10000 },SORTBY:{BY:'timestamp' as `@${string}`, DIRECTION: 'ASC'} })) as {
     total: number;
     documents: {
       id: string;
@@ -200,53 +220,48 @@ async function saveMessage(from: string, message: string) {
   let obj = {
     from: from,
     message: message,
+    timestamp: Date.now(),
     date: new Date(Date.now()).toISOString(),
   } as any;
   await client.publish(process.env.REDIS_ROOM as string, JSON.stringify(obj));
   let key = await getKey("message:");
   await client.json.set(`message:${key}`, "$", obj);
 }
-app.use(express.static(path.join(__dirname, "../../frontend")));
+async function checkLogin(req:express.Request) {
+  let currentuser='';
+    await req.sessionStore.get(req.sessionID, async (err, savedValue) => {
+      currentuser= savedValue?.currentuser?? '';
+  });
+return currentuser;
 
+}
 io.on("connection", (socket) => {
   socket.on("chat message", async (msg) => {
     const req = socket.request as express.Request;
+     if(!(await checkLogin(req))){
+io.emit("expires", "");
+    return;
+  }
     if (!client.isOpen) {
       await client.connect().then(async () => {
-        await saveMessage(req.session.currentuser as string, msg);
+        await saveMessage((await checkLogin(req)) as string, msg);
       });
     } else {
-      await saveMessage(req.session.currentuser as string, msg);
+      await saveMessage((await checkLogin(req)) as string, msg);
     }
 
-    io.emit(
-      "chat message",
-      `
-          <div class="col-sm-12 message-main-sender">
-                              <img class="avatar avatarR" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
-            <div class="sender">
-              <div class="message-text">
-                              ${msg}
-
-              </div>
-              <span class="message-time pull-right">
-                                 ${new Date(Date.now()).toLocaleString()}
-
-              </span>
-            </div>
-          </div>
-       `
-    ); // gửi cho tất cả
+  
   });
   clientSubOpen(async () => {
    await clientSub.unsubscribe(process.env.REDIS_ROOM as string);
-   await clientSub.subscribe(process.env.REDIS_ROOM as string, (message) => {
+   await clientSub.subscribe(process.env.REDIS_ROOM as string, async (message) => {
       const req = socket.request as express.Request;
 
   const obj = JSON.parse(message);
+  let chk= await checkLogin(req);
   io.emit(
       "chat message",
-  (req.session.currentuser === obj.from?`
+  (chk===obj.from?`
           <div class="col-sm-12 message-main-sender">
                               <img class="avatar avatarR" height=50 width=50 src="https://bootdey.com/img/Content/avatar/avatar6.png">
             <div class="sender">

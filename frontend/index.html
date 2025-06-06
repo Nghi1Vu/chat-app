@@ -197,6 +197,15 @@ picker.on('emoji', emoji => {
       document.getElementById("comment").value = '';
     }
   }
+  document.getElementById("comment").addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault(); // Prevent the default action of Enter key
+      SendMessage();
+    }
+  });
+  socket.on('expires', (msg) => {
+    window.location.href = '/';
+  });
  socket.on('chat message', (msg) => {
   debugger
     const conversation = document.getElementById('conversation');

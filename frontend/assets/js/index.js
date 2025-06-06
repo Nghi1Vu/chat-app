@@ -12,8 +12,8 @@ $(function(){
     });
 
     fetch("/getMessages").then(data=>{
+      data.status === 501?window.location.href="/":null;
       data.json().then((x)=>{
-        debugger
       let container=$('#conversation')
       container.append(x)
           container[0].scrollTo(0, container[0].scrollHeight);
