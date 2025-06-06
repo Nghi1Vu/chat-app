@@ -52,8 +52,10 @@ const io = new Server(server);
 // Add body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+if (process.env.NODE_ENV !== "production") {
 
 app.use(connectLiveReload()); // Middleware để inject LiveReload script
+}
   (async () => {
   if (!client.isOpen) {
     await client.connect();
@@ -63,7 +65,7 @@ app.use(connectLiveReload()); // Middleware để inject LiveReload script
   secret: 'secret',
   saveUninitialized: true,
   resave: false,
-  cookie: { secure: false, maxAge: 1 }
+  cookie: { secure: false, maxAge: 360000 }
 });
 // Cấu hình session
 app.use(ses);
