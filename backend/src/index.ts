@@ -36,7 +36,7 @@ const clientSub = createClient({
     port: process.env.REDIS_PORT as unknown as number,
   },
 });
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "Production") {
 // Khởi tạo LiveReload server
 const liveReloadServer = livereload.createServer();
 
@@ -53,7 +53,7 @@ const io = new Server(server);
 // Add body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "Production") {
 
 app.use(connectLiveReload()); // Middleware để inject LiveReload script
 }
