@@ -114,6 +114,38 @@ app.post("/login", async (req, res) => {
   }
   req.sessionStore.set(req.sessionID,{currentuser: username,cookie:req.session.cookie} as SessionData);
 });
+//api
+app.post("/api/login", async (req, res) => {
+  const account = req.body.account as string;
+  const password = req.body.password as string;
+  let username;
+  if (!client.isOpen) {
+    await client.connect().then(async () => {
+      username = await Login(res, account, password);
+    });
+  } else {
+    username = await Login(res, account, password);
+  }
+  if (username!=undefined) {
+res.json({ status: "success", username: username });
+  }
+});
+app.get("/api/getMessages", async (req, res) => {
+   const currentuser = req.query.currentuser as string;
+
+  
+if (client.isOpen) {
+    res.json(await getMessages(currentuser));
+  } else {
+    client.connect().then(async () => {
+      res.json(await getMessages(currentuser));
+    });
+  }
+
+
+  
+});
+//api app mobile
 app.use(express.static(path.join(__dirname, "../../frontend")));
 
   })()
