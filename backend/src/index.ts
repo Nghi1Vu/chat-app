@@ -112,6 +112,9 @@ app.post("/login", async (req, res) => {
   } else {
     username = await Login(res, account, password);
   }
+  if(username!=undefined){
+        res.redirect("/index.html");
+  }
   req.sessionStore.set(req.sessionID,{currentuser: username,cookie:req.session.cookie} as SessionData);
 });
 //api
@@ -163,7 +166,6 @@ async function Login(res: Response, account: string, password: string) {
     }[];
   };
   if (findPaulResult && findPaulResult.total > 0) {
-    res.redirect("/index.html");
     return account;
   }
 }
