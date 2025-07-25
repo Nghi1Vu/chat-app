@@ -148,7 +148,7 @@ if (client.isOpen) {
 
   
 });
-app.get("/api/saveMessage", async (req, res) => {
+app.post("/api/saveMessage", async (req, res) => {
    const currentuser = req.body.currentuser as string;
    const message = req.body.message as string;
 
