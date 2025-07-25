@@ -148,6 +148,22 @@ if (client.isOpen) {
 
   
 });
+app.get("/api/saveMessage", async (req, res) => {
+   const currentuser = req.body.currentuser as string;
+   const message = req.body.message as string;
+
+  
+if (client.isOpen) {
+    res.json(await saveMessage_api(currentuser,message));
+  } else {
+    client.connect().then(async () => {
+      res.json(await saveMessage_api(currentuser,message));
+    });
+  }
+
+
+  
+});
 async function getMessages_api(currentuser: string | undefined) {
   let result = "";
   let findPaulResult = (await client.ft.search("idx:messages", "*",{ LIMIT: { from: 0, size: 10000 },SORTBY:{BY:'timestamp' as `@${string}`, DIRECTION: 'ASC'} })) as {
@@ -165,6 +181,17 @@ async function getMessages_api(currentuser: string | undefined) {
     
     return findPaulResult.documents;
   }
+}
+async function saveMessage_api(from: string, message: string) {
+  let obj = {
+    from: from,
+    message: message,
+    timestamp: Date.now(),
+    date: new Date(Date.now()).toISOString(),
+  } as any;
+  await client.publish(process.env.REDIS_ROOM as string, JSON.stringify(obj));
+  let key = await getKey("message:");
+  return await client.json.set(`message:${key}`, "$", obj);
 }
 //api app mobile
 app.use(express.static(path.join(__dirname, "../../frontend")));
