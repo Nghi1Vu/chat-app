@@ -138,16 +138,34 @@ app.get("/api/getMessages", async (req, res) => {
 
   
 if (client.isOpen) {
-    res.json(await getMessages(currentuser));
+    res.json(await getMessages_api(currentuser));
   } else {
     client.connect().then(async () => {
-      res.json(await getMessages(currentuser));
+      res.json(await getMessages_api(currentuser));
     });
   }
 
 
   
 });
+async function getMessages_api(currentuser: string | undefined) {
+  let result = "";
+  let findPaulResult = (await client.ft.search("idx:messages", "*",{ LIMIT: { from: 0, size: 10000 },SORTBY:{BY:'timestamp' as `@${string}`, DIRECTION: 'ASC'} })) as {
+    total: number;
+    documents: {
+      id: string;
+      value: {
+        from: string;
+        message: string;
+        date: string;
+      };
+    }[];
+  };
+  if (findPaulResult && findPaulResult.total) {
+    
+    return findPaulResult.documents;
+  }
+}
 //api app mobile
 app.use(express.static(path.join(__dirname, "../../frontend")));
 
