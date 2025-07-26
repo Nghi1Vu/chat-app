@@ -186,7 +186,7 @@ async function saveMessage_api(from: string, message: string) {
   let obj = {
     from: from,
     message: message,
-    timestamp: Date.now(),
+    timestamp: getTicks(),
     date: new Date(Date.now()).toISOString(),
   } as any;
   await client.publish(process.env.REDIS_ROOM as string, JSON.stringify(obj));
@@ -302,7 +302,7 @@ async function saveMessage(from: string, message: string) {
   let obj = {
     from: from,
     message: message,
-    timestamp: Date.now(),
+    timestamp:getTicks(),
     date: new Date(Date.now()).toISOString(),
   } as any;
   await client.publish(process.env.REDIS_ROOM as string, JSON.stringify(obj));
@@ -317,6 +317,13 @@ async function checkLogin(req:express.Request) {
 return currentuser;
 
 }
+// Lấy ticks giống DateTime.Now.Ticks của C#
+const getTicks = () => {
+  const epochTicks = 621355968000000000; // số ticks từ 0001-01-01 đến 1970-01-01
+  const now = Date.now(); // milliseconds since 1970
+  return epochTicks + (now * 10000); // chuyển ms → ticks (1 tick = 100ns)
+};
+
 io.on("connection", (socket) => {
   socket.on("chat message", async (msg) => {
     const req = socket.request as express.Request;
@@ -341,6 +348,10 @@ io.emit("expires", "");
 
   const obj = JSON.parse(message);
   let chk= await checkLogin(req);
+       if(!chk){
+io.emit("expires", "");
+    return;
+  }
   io.emit(
       "chat message",
   (chk===obj.from?`
@@ -374,7 +385,9 @@ io.emit("expires", "");
           </div>
         </div>`)
     ); // gửi cho tất cả
-});
+     io.emit(
+      "chat message api", JSON.stringify({from: obj.from, message: obj.message, date: obj.date, timestamp: obj.timestamp})
+  )});
   });
 
   socket.on("disconnect", () => {});
