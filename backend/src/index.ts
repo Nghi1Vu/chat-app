@@ -239,7 +239,7 @@ async function getMessages(currentuser: string | undefined) {
 
               </div>
               <span class="message-time pull-right">
-                                 ${new Date(doc.value.date).toLocaleString()}
+                                 ${new Date(doc.value.date).toLocaleString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh',hour12:true})}
 
               </span>
             </div>
@@ -257,7 +257,7 @@ async function getMessages(currentuser: string | undefined) {
                ${doc.value.message}
               </div>
               <span class="message-time pull-right">
-                                 ${new Date(doc.value.date).toLocaleString()}
+                                 ${new Date(doc.value.date).toLocaleString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh',hour12:true})}
               </span>
             </div>
           </div>
@@ -363,7 +363,7 @@ io.emit("expires", "");
 
               </div>
               <span class="message-time pull-right">
-                                 ${new Date(obj.date).toLocaleString()}
+                                 ${new Date(obj.date).toLocaleString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh',hour12:true})}
 
               </span>
             </div>
@@ -379,7 +379,7 @@ io.emit("expires", "");
                ${obj.message}
               </div>
               <span class="message-time pull-right">
-                                 ${new Date(obj.date).toLocaleString()}
+                                 ${new Date(obj.date).toLocaleString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh',hour12:true})}
               </span>
             </div>
           </div>
